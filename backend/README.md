@@ -216,6 +216,11 @@ return [
 
 Backend Done ✔️
 
+### Backend
+```bash
+php artisan serve
+```
+
 Test API:
 
 ```http
