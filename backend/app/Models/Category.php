@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Post extends Model
+class Category extends Model
 {
     use HasFactory;
 
@@ -13,16 +13,15 @@ class Post extends Model
      * Fields allowed for mass assignment.
      */
     protected $fillable = [
-        'title',
-        'body',
-        'category_id',
+        'name',
+        'description',
     ];
 
     /**
-     * A post belongs to one category.
+     * A category has many posts.
      */
-    public function category()
+    public function posts()
     {
-        return $this->belongsTo(Category::class);
+        return $this->hasMany(Post::class);
     }
 }
