@@ -4,12 +4,6 @@ import { useEffect, useState } from "react";
 
 import api from "@/services/api";
 
-/*
-|--------------------------------------------------------------------------
-| Interfaces
-|--------------------------------------------------------------------------
-*/
-
 interface Category {
   id: number;
   name: string;
@@ -23,6 +17,7 @@ interface Post {
   body: string;
   category_id: number | null;
   category?: Category | null;
+  status: "draft" | "published" | "archived";
   created_at?: string;
   updated_at?: string;
 }
@@ -42,20 +37,17 @@ interface Statistics {
   week_posts: number;
   month_posts: number;
   total_categories: number;
+  draft_posts: number;
+  published_posts: number;
+  archived_posts: number;
   latest_post: Post | null;
   category_statistics: Category[];
 }
 
-/*
-|--------------------------------------------------------------------------
-| Home Component
-|--------------------------------------------------------------------------
-*/
-
 export default function Home() {
   /*
   |--------------------------------------------------------------------------
-  | Post States
+  | Posts
   |--------------------------------------------------------------------------
   */
 
@@ -65,45 +57,79 @@ export default function Home() {
 
   const [body, setBody] = useState("");
 
-  const [categoryId, setCategoryId] = useState("");
+  const [categoryId, setCategoryId] =
+    useState("");
 
-  const [editId, setEditId] = useState<number | null>(null);
+  const [status, setStatus] =
+    useState<
+      "draft" | "published" | "archived"
+    >("draft");
+
+  const [editId, setEditId] =
+    useState<number | null>(null);
 
   /*
   |--------------------------------------------------------------------------
-  | Category States
+  | Categories
   |--------------------------------------------------------------------------
   */
 
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] =
+    useState<Category[]>([]);
 
-  const [categoryName, setCategoryName] = useState("");
+  const [categoryName, setCategoryName] =
+    useState("");
 
-  const [categoryDescription, setCategoryDescription] = useState("");
+  const [categoryDescription, setCategoryDescription] =
+    useState("");
 
   const [categoryEditId, setCategoryEditId] =
     useState<number | null>(null);
 
   /*
   |--------------------------------------------------------------------------
-  | Search / Filter / Pagination States
+  | Filters
   |--------------------------------------------------------------------------
   */
 
-  const [search, setSearch] = useState("");
+  const [search, setSearch] =
+    useState("");
 
-  const [filterCategory, setFilterCategory] = useState("");
+  const [filterCategory, setFilterCategory] =
+    useState("");
 
-  const [sort, setSort] = useState("created_at");
+  const [filterStatus, setFilterStatus] =
+    useState("");
 
-  const [direction, setDirection] = useState("desc");
+  const [dateFrom, setDateFrom] =
+    useState("");
 
-  const [currentPage, setCurrentPage] = useState(1);
+  const [dateTo, setDateTo] =
+    useState("");
 
-  const [perPage, setPerPage] = useState(5);
+  const [sort, setSort] =
+    useState("created_at");
+
+  const [direction, setDirection] =
+    useState("desc");
+
+  const [currentPage, setCurrentPage] =
+    useState(1);
+
+  const [perPage, setPerPage] =
+    useState(5);
 
   const [pagination, setPagination] =
     useState<Pagination | null>(null);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Selection
+  |--------------------------------------------------------------------------
+  */
+
+  const [selectedIds, setSelectedIds] =
+    useState<number[]>([]);
 
   /*
   |--------------------------------------------------------------------------
@@ -116,13 +142,54 @@ export default function Home() {
 
   /*
   |--------------------------------------------------------------------------
-  | Loading / Error
+  | Loading
   |--------------------------------------------------------------------------
   */
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] =
+    useState(false);
 
-  const [error, setError] = useState("");
+  const [error, setError] =
+    useState("");
+
+  /*
+  |--------------------------------------------------------------------------
+  | Dark Mode
+  |--------------------------------------------------------------------------
+  */
+
+  const [darkMode, setDarkMode] =
+    useState(false);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Load Theme
+  |--------------------------------------------------------------------------
+  */
+
+  useEffect(() => {
+    const saved =
+      localStorage.getItem(
+        "post_manager_theme"
+      );
+
+    if (saved === "dark") {
+      setDarkMode(true);
+    }
+  }, []);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Save Theme
+  |--------------------------------------------------------------------------
+  */
+
+  useEffect(() => {
+    localStorage.setItem(
+      "post_manager_theme",
+      darkMode ? "dark" : "light"
+    );
+  }, [darkMode]);
 
   /*
   |--------------------------------------------------------------------------
@@ -130,15 +197,24 @@ export default function Home() {
   |--------------------------------------------------------------------------
   */
 
-  const fetchCategories = async () => {
-    try {
-      const response = await api.get("/categories");
+  const fetchCategories =
+    async () => {
+      try {
+        const response =
+          await api.get(
+            "/categories"
+          );
 
-      setCategories(response.data.data);
-    } catch (error) {
-      console.error("Category loading failed:", error);
-    }
-  };
+        setCategories(
+          response.data.data
+        );
+      } catch (error) {
+        console.error(
+          "Category loading failed:",
+          error
+        );
+      }
+    };
 
   /*
   |--------------------------------------------------------------------------
@@ -146,42 +222,81 @@ export default function Home() {
   |--------------------------------------------------------------------------
   */
 
-  const fetchPosts = async () => {
-    try {
-      setLoading(true);
+  const fetchPosts =
+    async () => {
+      try {
+        setLoading(true);
 
-      setError("");
+        setError("");
 
-      const response = await api.get("/posts", {
-        params: {
-          search: search || undefined,
+        const response =
+          await api.get(
+            "/posts",
+            {
+              params: {
+                search:
+                  search || undefined,
 
-          category_id:
-            filterCategory || undefined,
+                category_id:
+                  filterCategory ||
+                  undefined,
 
-          sort,
+                status:
+                  filterStatus ||
+                  undefined,
 
-          direction,
+                date_from:
+                  dateFrom ||
+                  undefined,
 
-          page: currentPage,
+                date_to:
+                  dateTo ||
+                  undefined,
 
-          per_page: perPage,
-        },
-      });
+                sort,
 
-      setPosts(response.data.data);
+                direction,
 
-      setPagination(response.data.pagination);
-    } catch (error) {
-      console.error("Post loading failed:", error);
+                page: currentPage,
 
-      setError(
-        "Unable to load posts. Please check Laravel API."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+                per_page: perPage,
+              },
+            }
+          );
+
+        setPosts(
+          response.data.data
+        );
+
+        setPagination(
+          response.data.pagination
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Remove selected IDs that no longer exist
+        |--------------------------------------------------------------------------
+        */
+
+        setSelectedIds(
+          (oldIds) =>
+            oldIds.filter((id) =>
+              response.data.data.some(
+                (post: Post) =>
+                  post.id === id
+              )
+            )
+        );
+      } catch (error) {
+        console.error(error);
+
+        setError(
+          "Unable to load posts. Please check Laravel API."
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
 
   /*
   |--------------------------------------------------------------------------
@@ -189,20 +304,24 @@ export default function Home() {
   |--------------------------------------------------------------------------
   */
 
-  const fetchStatistics = async () => {
-    try {
-      const response = await api.get(
-        "/posts/statistics"
-      );
+  const fetchStatistics =
+    async () => {
+      try {
+        const response =
+          await api.get(
+            "/posts/statistics"
+          );
 
-      setStatistics(response.data.data);
-    } catch (error) {
-      console.error(
-        "Statistics loading failed:",
-        error
-      );
-    }
-  };
+        setStatistics(
+          response.data.data
+        );
+      } catch (error) {
+        console.error(
+          "Statistics loading failed:",
+          error
+        );
+      }
+    };
 
   /*
   |--------------------------------------------------------------------------
@@ -218,15 +337,24 @@ export default function Home() {
 
   /*
   |--------------------------------------------------------------------------
-  | Fetch Posts when Filters Change
+  | Filters Changed
   |--------------------------------------------------------------------------
   */
 
   useEffect(() => {
-    fetchPosts();
+    const timer =
+      setTimeout(() => {
+        fetchPosts();
+      }, 300);
+
+    return () =>
+      clearTimeout(timer);
   }, [
     search,
     filterCategory,
+    filterStatus,
+    dateFrom,
+    dateTo,
     sort,
     direction,
     currentPage,
@@ -239,47 +367,63 @@ export default function Home() {
   |--------------------------------------------------------------------------
   */
 
-  const submitPost = async () => {
-    if (!title.trim() || !body.trim()) {
-      alert("Please fill title and body.");
-      return;
-    }
+  const submitPost =
+    async () => {
+      if (
+        !title.trim() ||
+        !body.trim()
+      ) {
+        alert(
+          "Please fill title and body."
+        );
 
-    try {
-      if (editId !== null) {
-        await api.put(`/posts/${editId}`, {
-          title,
-          body,
-          category_id:
-            categoryId || null,
-        });
-
-        alert("Post updated successfully.");
-      } else {
-        await api.post("/posts", {
-          title,
-          body,
-          category_id:
-            categoryId || null,
-        });
-
-        alert("Post created successfully.");
+        return;
       }
 
-      resetPostForm();
+      try {
+        const data = {
+          title,
+          body,
+          category_id:
+            categoryId || null,
+          status,
+        };
 
-      await fetchPosts();
+        if (editId !== null) {
+          await api.put(
+            `/posts/${editId}`,
+            data
+          );
 
-      await fetchStatistics();
-    } catch (error: any) {
-      console.error(error);
+          alert(
+            "Post updated successfully."
+          );
+        } else {
+          await api.post(
+            "/posts",
+            data
+          );
 
-      alert(
-        error?.response?.data?.message ||
-        "Unable to save post."
-      );
-    }
-  };
+          alert(
+            "Post created successfully."
+          );
+        }
+
+        resetPostForm();
+
+        await fetchPosts();
+
+        await fetchStatistics();
+      } catch (error: any) {
+        console.error(error);
+
+        alert(
+          error?.response?.data
+            ?.message ||
+            "Unable to save post."
+        );
+      }
+    };
 
   /*
   |--------------------------------------------------------------------------
@@ -287,24 +431,31 @@ export default function Home() {
   |--------------------------------------------------------------------------
   */
 
-  const editPost = (post: Post) => {
-    setEditId(post.id);
+  const editPost =
+    (post: Post) => {
+      setEditId(post.id);
 
-    setTitle(post.title);
+      setTitle(post.title);
 
-    setBody(post.body);
+      setBody(post.body);
 
-    setCategoryId(
-      post.category_id
-        ? String(post.category_id)
-        : ""
-    );
+      setCategoryId(
+        post.category_id
+          ? String(
+              post.category_id
+            )
+          : ""
+      );
 
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
-  };
+      setStatus(
+        post.status
+      );
+
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    };
 
   /*
   |--------------------------------------------------------------------------
@@ -312,25 +463,99 @@ export default function Home() {
   |--------------------------------------------------------------------------
   */
 
-  const deletePost = async (id: number) => {
-    if (!confirm("Delete this post?")) {
-      return;
-    }
+  const deletePost =
+    async (id: number) => {
+      if (
+        !confirm(
+          "Delete this post?"
+        )
+      ) {
+        return;
+      }
 
-    try {
-      await api.delete(`/posts/${id}`);
+      try {
+        await api.delete(
+          `/posts/${id}`
+        );
 
-      alert("Post deleted successfully.");
+        alert(
+          "Post deleted successfully."
+        );
 
-      await fetchPosts();
+        await fetchPosts();
 
-      await fetchStatistics();
-    } catch (error) {
-      console.error(error);
+        await fetchStatistics();
+      } catch (error) {
+        console.error(error);
 
-      alert("Unable to delete post.");
-    }
-  };
+        alert(
+          "Unable to delete post."
+        );
+      }
+    };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Duplicate Post
+  |--------------------------------------------------------------------------
+  */
+
+  const duplicatePost =
+    async (id: number) => {
+      try {
+        await api.post(
+          `/posts/${id}/duplicate`
+        );
+
+        alert(
+          "Post duplicated successfully."
+        );
+
+        await fetchPosts();
+
+        await fetchStatistics();
+      } catch (error) {
+        console.error(error);
+
+        alert(
+          "Unable to duplicate post."
+        );
+      }
+    };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Quick Status Change
+  |--------------------------------------------------------------------------
+  */
+
+  const changeStatus =
+    async (
+      id: number,
+      newStatus:
+        | "draft"
+        | "published"
+        | "archived"
+    ) => {
+      try {
+        await api.patch(
+          `/posts/${id}/status`,
+          {
+            status: newStatus,
+          }
+        );
+
+        await fetchPosts();
+
+        await fetchStatistics();
+      } catch (error) {
+        console.error(error);
+
+        alert(
+          "Unable to change status."
+        );
+      }
+    };
 
   /*
   |--------------------------------------------------------------------------
@@ -338,68 +563,85 @@ export default function Home() {
   |--------------------------------------------------------------------------
   */
 
-  const resetPostForm = () => {
-    setEditId(null);
+  const resetPostForm =
+    () => {
+      setEditId(null);
 
-    setTitle("");
+      setTitle("");
 
-    setBody("");
+      setBody("");
 
-    setCategoryId("");
-  };
+      setCategoryId("");
+
+      setStatus("draft");
+    };
 
   /*
   |--------------------------------------------------------------------------
-  | Create / Update Category
+  | Category Submit
   |--------------------------------------------------------------------------
   */
 
-  const submitCategory = async () => {
-    if (!categoryName.trim()) {
-      alert("Enter category name.");
-      return;
-    }
-
-    try {
-      if (categoryEditId !== null) {
-        await api.put(
-          `/categories/${categoryEditId}`,
-          {
-            name: categoryName,
-            description:
-              categoryDescription,
-          }
-        );
-
+  const submitCategory =
+    async () => {
+      if (
+        !categoryName.trim()
+      ) {
         alert(
-          "Category updated successfully."
+          "Enter category name."
         );
-      } else {
-        await api.post("/categories", {
-          name: categoryName,
-          description:
-            categoryDescription,
-        });
 
-        alert(
-          "Category created successfully."
-        );
+        return;
       }
 
-      resetCategoryForm();
+      try {
+        if (
+          categoryEditId !== null
+        ) {
+          await api.put(
+            `/categories/${categoryEditId}`,
+            {
+              name:
+                categoryName,
+              description:
+                categoryDescription,
+            }
+          );
 
-      await fetchCategories();
+          alert(
+            "Category updated successfully."
+          );
+        } else {
+          await api.post(
+            "/categories",
+            {
+              name:
+                categoryName,
+              description:
+                categoryDescription,
+            }
+          );
 
-      await fetchStatistics();
-    } catch (error: any) {
-      console.error(error);
+          alert(
+            "Category created successfully."
+          );
+        }
 
-      alert(
-        error?.response?.data?.message ||
-        "Unable to save category."
-      );
-    }
-  };
+        resetCategoryForm();
+
+        await fetchCategories();
+
+        await fetchStatistics();
+      } catch (error: any) {
+        console.error(error);
+
+        alert(
+          error?.response?.data
+            ?.message ||
+            "Unable to save category."
+        );
+      }
+    };
 
   /*
   |--------------------------------------------------------------------------
@@ -407,15 +649,21 @@ export default function Home() {
   |--------------------------------------------------------------------------
   */
 
-  const editCategory = (category: Category) => {
-    setCategoryEditId(category.id);
+  const editCategory =
+    (category: Category) => {
+      setCategoryEditId(
+        category.id
+      );
 
-    setCategoryName(category.name);
+      setCategoryName(
+        category.name
+      );
 
-    setCategoryDescription(
-      category.description || ""
-    );
-  };
+      setCategoryDescription(
+        category.description ||
+          ""
+      );
+    };
 
   /*
   |--------------------------------------------------------------------------
@@ -423,89 +671,292 @@ export default function Home() {
   |--------------------------------------------------------------------------
   */
 
-  const deleteCategory = async (id: number) => {
-    if (
-      !confirm(
-        "Delete this category? Posts will remain but their category will become empty."
-      )
-    ) {
-      return;
-    }
+  const deleteCategory =
+    async (id: number) => {
+      if (
+        !confirm(
+          "Delete this category?"
+        )
+      ) {
+        return;
+      }
 
-    try {
-      await api.delete(`/categories/${id}`);
+      try {
+        await api.delete(
+          `/categories/${id}`
+        );
 
-      alert(
-        "Category deleted successfully."
+        alert(
+          "Category deleted successfully."
+        );
+
+        await fetchCategories();
+
+        await fetchPosts();
+
+        await fetchStatistics();
+      } catch (error) {
+        console.error(error);
+
+        alert(
+          "Unable to delete category."
+        );
+      }
+    };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Reset Category
+  |--------------------------------------------------------------------------
+  */
+
+  const resetCategoryForm =
+    () => {
+      setCategoryEditId(
+        null
       );
 
-      await fetchCategories();
+      setCategoryName("");
 
-      await fetchPosts();
-
-      await fetchStatistics();
-    } catch (error) {
-      console.error(error);
-
-      alert("Unable to delete category.");
-    }
-  };
+      setCategoryDescription("");
+    };
 
   /*
   |--------------------------------------------------------------------------
-  | Reset Category Form
+  | Reset Filters
   |--------------------------------------------------------------------------
   */
 
-  const resetCategoryForm = () => {
-    setCategoryEditId(null);
+  const resetFilters =
+    () => {
+      setSearch("");
 
-    setCategoryName("");
+      setFilterCategory("");
 
-    setCategoryDescription("");
-  };
+      setFilterStatus("");
+
+      setDateFrom("");
+
+      setDateTo("");
+
+      setSort(
+        "created_at"
+      );
+
+      setDirection(
+        "desc"
+      );
+
+      setCurrentPage(1);
+
+      setPerPage(5);
+    };
 
   /*
   |--------------------------------------------------------------------------
-  | Search Handler
+  | Selection Toggle
   |--------------------------------------------------------------------------
   */
 
-  const handleSearch = (
-    value: string
-  ) => {
-    setSearch(value);
-
-    setCurrentPage(1);
-  };
+  const toggleSelection =
+    (id: number) => {
+      setSelectedIds(
+        (oldIds) =>
+          oldIds.includes(id)
+            ? oldIds.filter(
+                (item) =>
+                  item !== id
+              )
+            : [
+                ...oldIds,
+                id,
+              ]
+      );
+    };
 
   /*
   |--------------------------------------------------------------------------
-  | Category Filter Handler
+  | Select All Current Page
   |--------------------------------------------------------------------------
   */
 
-  const handleCategoryFilter = (
-    value: string
-  ) => {
-    setFilterCategory(value);
+  const toggleSelectAll =
+    () => {
+      const pageIds =
+        posts.map(
+          (post) =>
+            post.id
+        );
 
-    setCurrentPage(1);
-  };
+      const allSelected =
+        pageIds.every(
+          (id) =>
+            selectedIds.includes(
+              id
+            )
+        );
+
+      if (allSelected) {
+        setSelectedIds(
+          (oldIds) =>
+            oldIds.filter(
+              (id) =>
+                !pageIds.includes(
+                  id
+                )
+            )
+        );
+      } else {
+        setSelectedIds(
+          (oldIds) => [
+            ...new Set([
+              ...oldIds,
+              ...pageIds,
+            ]),
+          ]
+        );
+      }
+    };
 
   /*
   |--------------------------------------------------------------------------
-  | Sort Handler
+  | Bulk Delete
   |--------------------------------------------------------------------------
   */
 
-  const handleSort = (
-    value: string
-  ) => {
-    setSort(value);
+  const bulkDelete =
+    async () => {
+      if (
+        selectedIds.length === 0
+      ) {
+        alert(
+          "Select at least one post."
+        );
 
-    setCurrentPage(1);
-  };
+        return;
+      }
+
+      if (
+        !confirm(
+          `Delete ${selectedIds.length} selected post(s)?`
+        )
+      ) {
+        return;
+      }
+
+      try {
+        await api.post(
+          "/posts/bulk-delete",
+          {
+            ids: selectedIds,
+          }
+        );
+
+        setSelectedIds([]);
+
+        alert(
+          "Selected posts deleted successfully."
+        );
+
+        await fetchPosts();
+
+        await fetchStatistics();
+      } catch (error) {
+        console.error(error);
+
+        alert(
+          "Unable to delete selected posts."
+        );
+      }
+    };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Export CSV
+  |--------------------------------------------------------------------------
+  */
+
+  const exportCSV =
+    async () => {
+      try {
+        const response =
+          await api.get(
+            "/posts/export",
+            {
+              params: {
+                search:
+                  search ||
+                  undefined,
+
+                category_id:
+                  filterCategory ||
+                  undefined,
+
+                status:
+                  filterStatus ||
+                  undefined,
+
+                date_from:
+                  dateFrom ||
+                  undefined,
+
+                date_to:
+                  dateTo ||
+                  undefined,
+
+                sort,
+
+                direction,
+              },
+
+              responseType:
+                "blob",
+            }
+          );
+
+        const blob =
+          new Blob(
+            [response.data],
+            {
+              type:
+                "text/csv",
+            }
+          );
+
+        const url =
+          window.URL.createObjectURL(
+            blob
+          );
+
+        const link =
+          document.createElement(
+            "a"
+          );
+
+        link.href = url;
+
+        link.download =
+          "posts.csv";
+
+        document.body.appendChild(
+          link
+        );
+
+        link.click();
+
+        link.remove();
+
+        window.URL.revokeObjectURL(
+          url
+        );
+      } catch (error) {
+        console.error(error);
+
+        alert(
+          "Unable to export CSV."
+        );
+      }
+    };
 
   /*
   |--------------------------------------------------------------------------
@@ -513,46 +964,59 @@ export default function Home() {
   |--------------------------------------------------------------------------
   */
 
-  const goToPage = (
-    page: number
-  ) => {
-    if (!pagination) {
-      return;
-    }
+  const goToPage =
+    (page: number) => {
+      if (!pagination) {
+        return;
+      }
 
-    if (
-      page < 1 ||
-      page > pagination.last_page
-    ) {
-      return;
-    }
+      if (
+        page < 1 ||
+        page >
+          pagination.last_page
+      ) {
+        return;
+      }
 
-    setCurrentPage(page);
-  };
+      setCurrentPage(page);
+    };
+
+  const getPageNumbers =
+    () => {
+      if (!pagination) {
+        return [];
+      }
+
+      const pages: number[] =
+        [];
+
+      for (
+        let page = 1;
+        page <=
+          pagination.last_page;
+        page++
+      ) {
+        pages.push(page);
+      }
+
+      return pages;
+    };
 
   /*
   |--------------------------------------------------------------------------
-  | Page Number Generator
+  | UI Classes
   |--------------------------------------------------------------------------
   */
 
-  const getPageNumbers = () => {
-    if (!pagination) {
-      return [];
-    }
+  const cardClass =
+    darkMode
+      ? "bg-gray-800 border-gray-700 text-white"
+      : "bg-white border-gray-200 text-gray-800";
 
-    const pages: number[] = [];
-
-    for (
-      let page = 1;
-      page <= pagination.last_page;
-      page++
-    ) {
-      pages.push(page);
-    }
-
-    return pages;
-  };
+  const inputClass =
+    darkMode
+      ? "bg-gray-900 border-gray-600 text-white placeholder-gray-400"
+      : "bg-white border-gray-300 text-gray-800";
 
   /*
   |--------------------------------------------------------------------------
@@ -561,123 +1025,178 @@ export default function Home() {
   */
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-gray-100 py-10 px-4">
+    <main
+      className={
+        darkMode
+          ? "min-h-screen bg-gray-950 text-white py-10 px-4"
+          : "min-h-screen bg-gradient-to-br from-indigo-50 via-white to-gray-100 py-10 px-4"
+      }
+    >
+      <div className="max-w-7xl mx-auto space-y-8">
 
-      <div className="max-w-6xl mx-auto space-y-8">
-
-        {/* ========================================================= */}
         {/* HEADER */}
-        {/* ========================================================= */}
 
-        <div className="text-center">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
 
-          <h1 className="text-4xl font-bold text-indigo-700">
-            Next.js + Laravel CRUD
-          </h1>
+          <div>
+            <h1
+              className={
+                darkMode
+                  ? "text-4xl font-bold text-indigo-400"
+                  : "text-4xl font-bold text-indigo-700"
+              }
+            >
+              Next.js + Laravel CRUD
+            </h1>
 
-          <p className="text-gray-600 mt-2">
-            Advanced REST API Post Management
-          </p>
+            <p
+              className={
+                darkMode
+                  ? "text-gray-400 mt-2"
+                  : "text-gray-600 mt-2"
+              }
+            >
+              Advanced Post Management Dashboard
+            </p>
+          </div>
+
+          {/* DARK MODE */}
+
+          <button
+            onClick={() =>
+              setDarkMode(
+                !darkMode
+              )
+            }
+            className="px-4 py-2 rounded-lg bg-gray-800 text-white hover:bg-gray-700"
+          >
+            {darkMode
+              ? "☀️ Light Mode"
+              : "🌙 Dark Mode"}
+          </button>
 
         </div>
 
-        {/* ========================================================= */}
-        {/* STATISTICS DASHBOARD */}
-        {/* ========================================================= */}
+        {/* STATISTICS */}
 
         <section>
-
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">
+          <h2 className="text-2xl font-bold mb-4">
             📊 Post Statistics
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
 
-            {/* Total */}
-            <div className="bg-white rounded-xl shadow-md p-5 border-l-4 border-indigo-500">
-
-              <p className="text-sm text-gray-500">
-                Total Posts
+            <div
+              className={`rounded-xl shadow-md p-5 border ${cardClass}`}
+            >
+              <p className="text-sm opacity-70">
+                Total
               </p>
 
-              <p className="text-3xl font-bold text-indigo-700 mt-2">
-                {statistics?.total_posts ?? 0}
+              <p className="text-3xl font-bold text-indigo-500 mt-2">
+                {statistics?.total_posts ??
+                  0}
               </p>
-
             </div>
 
-            {/* Today */}
-            <div className="bg-white rounded-xl shadow-md p-5 border-l-4 border-green-500">
-
-              <p className="text-sm text-gray-500">
-                Today's Posts
+            <div
+              className={`rounded-xl shadow-md p-5 border ${cardClass}`}
+            >
+              <p className="text-sm opacity-70">
+                Today
               </p>
 
-              <p className="text-3xl font-bold text-green-600 mt-2">
-                {statistics?.today_posts ?? 0}
+              <p className="text-3xl font-bold text-green-500 mt-2">
+                {statistics?.today_posts ??
+                  0}
               </p>
-
             </div>
 
-            {/* Week */}
-            <div className="bg-white rounded-xl shadow-md p-5 border-l-4 border-blue-500">
-
-              <p className="text-sm text-gray-500">
-                This Week
+            <div
+              className={`rounded-xl shadow-md p-5 border ${cardClass}`}
+            >
+              <p className="text-sm opacity-70">
+                Week
               </p>
 
-              <p className="text-3xl font-bold text-blue-600 mt-2">
-                {statistics?.week_posts ?? 0}
+              <p className="text-3xl font-bold text-blue-500 mt-2">
+                {statistics?.week_posts ??
+                  0}
               </p>
-
             </div>
 
-            {/* Month */}
-            <div className="bg-white rounded-xl shadow-md p-5 border-l-4 border-purple-500">
-
-              <p className="text-sm text-gray-500">
-                This Month
+            <div
+              className={`rounded-xl shadow-md p-5 border ${cardClass}`}
+            >
+              <p className="text-sm opacity-70">
+                Month
               </p>
 
-              <p className="text-3xl font-bold text-purple-600 mt-2">
-                {statistics?.month_posts ?? 0}
+              <p className="text-3xl font-bold text-purple-500 mt-2">
+                {statistics?.month_posts ??
+                  0}
               </p>
-
             </div>
 
-            {/* Categories */}
-            <div className="bg-white rounded-xl shadow-md p-5 border-l-4 border-orange-500">
-
-              <p className="text-sm text-gray-500">
-                Categories
+            <div
+              className={`rounded-xl shadow-md p-5 border ${cardClass}`}
+            >
+              <p className="text-sm opacity-70">
+                Draft
               </p>
 
-              <p className="text-3xl font-bold text-orange-600 mt-2">
-                {statistics?.total_categories ?? 0}
+              <p className="text-3xl font-bold text-yellow-500 mt-2">
+                {statistics?.draft_posts ??
+                  0}
+              </p>
+            </div>
+
+            <div
+              className={`rounded-xl shadow-md p-5 border ${cardClass}`}
+            >
+              <p className="text-sm opacity-70">
+                Published
               </p>
 
+              <p className="text-3xl font-bold text-green-500 mt-2">
+                {statistics?.published_posts ??
+                  0}
+              </p>
+            </div>
+
+            <div
+              className={`rounded-xl shadow-md p-5 border ${cardClass}`}
+            >
+              <p className="text-sm opacity-70">
+                Archived
+              </p>
+
+              <p className="text-3xl font-bold text-red-500 mt-2">
+                {statistics?.archived_posts ??
+                  0}
+              </p>
             </div>
 
           </div>
-
         </section>
 
-        {/* ========================================================= */}
         {/* CATEGORY MANAGEMENT */}
-        {/* ========================================================= */}
 
-        <section className="bg-white rounded-xl shadow-md p-6">
-
-          <h2 className="text-xl font-bold text-gray-800 mb-4">
+        <section
+          className={`rounded-xl shadow-md p-6 border ${cardClass}`}
+        >
+          <h2 className="text-xl font-bold mb-4">
             🏷️ Category Management
           </h2>
 
           <div className="grid md:grid-cols-3 gap-3">
 
             <input
-              className="rounded-md border border-gray-300 px-3 py-2"
+              className={`rounded-md border px-3 py-2 ${inputClass}`}
               placeholder="Category name"
-              value={categoryName}
+              value={
+                categoryName
+              }
               onChange={(e) =>
                 setCategoryName(
                   e.target.value
@@ -686,9 +1205,11 @@ export default function Home() {
             />
 
             <input
-              className="rounded-md border border-gray-300 px-3 py-2"
+              className={`rounded-md border px-3 py-2 ${inputClass}`}
               placeholder="Description"
-              value={categoryDescription}
+              value={
+                categoryDescription
+              }
               onChange={(e) =>
                 setCategoryDescription(
                   e.target.value
@@ -699,20 +1220,24 @@ export default function Home() {
             <div className="flex gap-2">
 
               <button
-                onClick={submitCategory}
+                onClick={
+                  submitCategory
+                }
                 className="flex-1 bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
               >
-                {categoryEditId !== null
+                {categoryEditId !==
+                null
                   ? "Update Category"
                   : "Add Category"}
               </button>
 
-              {categoryEditId !== null && (
+              {categoryEditId !==
+                null && (
                 <button
                   onClick={
                     resetCategoryForm
                   }
-                  className="border border-gray-300 px-4 py-2 rounded-md"
+                  className="border border-gray-400 px-4 py-2 rounded-md"
                 >
                   Cancel
                 </button>
@@ -722,36 +1247,39 @@ export default function Home() {
 
           </div>
 
-          {/* Category List */}
-
           <div className="mt-5 grid md:grid-cols-3 gap-3">
 
             {categories.map(
               (category) => (
                 <div
-                  key={category.id}
-                  className="border rounded-lg p-4 bg-gray-50"
+                  key={
+                    category.id
+                  }
+                  className={
+                    darkMode
+                      ? "border border-gray-700 rounded-lg p-4 bg-gray-900"
+                      : "border rounded-lg p-4 bg-gray-50"
+                  }
                 >
-
-                  <div className="flex justify-between">
+                  <div className="flex justify-between gap-3">
 
                     <div>
-
-                      <h3 className="font-semibold text-indigo-700">
-                        {category.name}
+                      <h3 className="font-semibold text-indigo-500">
+                        {
+                          category.name
+                        }
                       </h3>
 
-                      <p className="text-sm text-gray-500 mt-1">
+                      <p className="text-sm opacity-70 mt-1">
                         {category.description ||
                           "No description"}
                       </p>
 
-                      <p className="text-xs text-gray-500 mt-2">
+                      <p className="text-xs opacity-60 mt-2">
                         Posts:{" "}
                         {category.posts_count ??
                           0}
                       </p>
-
                     </div>
 
                     <div className="flex gap-2">
@@ -762,7 +1290,7 @@ export default function Home() {
                             category
                           )
                         }
-                        className="text-xs text-blue-600 border border-blue-200 px-2 py-1 rounded"
+                        className="text-xs text-blue-500 border border-blue-300 px-2 py-1 rounded"
                       >
                         Edit
                       </button>
@@ -773,30 +1301,26 @@ export default function Home() {
                             category.id
                           )
                         }
-                        className="text-xs text-red-600 border border-red-200 px-2 py-1 rounded"
+                        className="text-xs text-red-500 border border-red-300 px-2 py-1 rounded"
                       >
                         Delete
                       </button>
 
                     </div>
-
                   </div>
-
                 </div>
               )
             )}
 
           </div>
-
         </section>
 
-        {/* ========================================================= */}
         {/* CREATE / EDIT POST */}
-        {/* ========================================================= */}
 
-        <section className="bg-white rounded-xl shadow-md p-6">
-
-          <h2 className="text-xl font-bold text-gray-800 mb-4">
+        <section
+          className={`rounded-xl shadow-md p-6 border ${cardClass}`}
+        >
+          <h2 className="text-xl font-bold mb-4">
             {editId !== null
               ? "✏️ Edit Post"
               : "➕ Create Post"}
@@ -805,55 +1329,97 @@ export default function Home() {
           <div className="space-y-4">
 
             <input
-              className="w-full rounded-md border border-gray-300 px-3 py-2"
+              className={`w-full rounded-md border px-3 py-2 ${inputClass}`}
               placeholder="Post title"
               value={title}
               onChange={(e) =>
-                setTitle(e.target.value)
+                setTitle(
+                  e.target.value
+                )
               }
             />
 
             <textarea
-              className="w-full rounded-md border border-gray-300 px-3 py-2"
+              className={`w-full rounded-md border px-3 py-2 ${inputClass}`}
               placeholder="Post description"
               rows={5}
               value={body}
               onChange={(e) =>
-                setBody(e.target.value)
-              }
-            />
-
-            {/* Category */}
-
-            <select
-              className="w-full rounded-md border border-gray-300 px-3 py-2"
-              value={categoryId}
-              onChange={(e) =>
-                setCategoryId(
+                setBody(
                   e.target.value
                 )
               }
-            >
+            />
 
-              <option value="">
-                Select Category
-              </option>
+            <div className="grid md:grid-cols-2 gap-4">
 
-              {categories.map(
-                (category) => (
-                  <option
-                    key={category.id}
-                    value={category.id}
-                  >
-                    {category.name}
-                  </option>
-                )
-              )}
+              <select
+                className={`w-full rounded-md border px-3 py-2 ${inputClass}`}
+                value={
+                  categoryId
+                }
+                onChange={(e) =>
+                  setCategoryId(
+                    e.target.value
+                  )
+                }
+              >
+                <option value="">
+                  Select Category
+                </option>
 
-            </select>
+                {categories.map(
+                  (category) => (
+                    <option
+                      key={
+                        category.id
+                      }
+                      value={
+                        category.id
+                      }
+                    >
+                      {
+                        category.name
+                      }
+                    </option>
+                  )
+                )}
+              </select>
+
+              {/* STATUS */}
+
+              <select
+                className={`w-full rounded-md border px-3 py-2 ${inputClass}`}
+                value={status}
+                onChange={(e) =>
+                  setStatus(
+                    e.target
+                      .value as
+                      | "draft"
+                      | "published"
+                      | "archived"
+                  )
+                }
+              >
+                <option value="draft">
+                  Draft
+                </option>
+
+                <option value="published">
+                  Published
+                </option>
+
+                <option value="archived">
+                  Archived
+                </option>
+              </select>
+
+            </div>
 
             <button
-              onClick={submitPost}
+              onClick={
+                submitPost
+              }
               className="w-full bg-indigo-600 text-white py-2 rounded-md hover:bg-indigo-700"
             >
               {editId !== null
@@ -863,54 +1429,88 @@ export default function Home() {
 
             {editId !== null && (
               <button
-                onClick={resetPostForm}
-                className="w-full border border-gray-300 text-gray-600 py-2 rounded-md hover:bg-gray-50"
+                onClick={
+                  resetPostForm
+                }
+                className="w-full border border-gray-400 py-2 rounded-md"
               >
                 Cancel Edit
               </button>
             )}
 
           </div>
-
         </section>
 
-        {/* ========================================================= */}
-        {/* SEARCH & FILTER */}
-        {/* ========================================================= */}
+        {/* SEARCH FILTER */}
 
-        <section className="bg-white rounded-xl shadow-md p-6">
+        <section
+          className={`rounded-xl shadow-md p-6 border ${cardClass}`}
+        >
+          <div className="flex flex-col md:flex-row justify-between gap-3 mb-4">
 
-          <h2 className="text-xl font-bold text-gray-800 mb-4">
-            🔎 Search, Filter & Sort
-          </h2>
+            <h2 className="text-xl font-bold">
+              🔎 Search, Filter & Sort
+            </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div className="flex gap-2 flex-wrap">
 
-            {/* Search */}
+              <button
+                onClick={
+                  resetFilters
+                }
+                className="border border-gray-400 px-4 py-2 rounded-md hover:bg-gray-100 hover:text-gray-800"
+              >
+                🔄 Reset
+              </button>
+
+              <button
+                onClick={
+                  exportCSV
+                }
+                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
+              >
+                📥 Export CSV
+              </button>
+
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+
+            {/* SEARCH */}
 
             <input
-              className="rounded-md border border-gray-300 px-3 py-2"
+              className={`rounded-md border px-3 py-2 ${inputClass}`}
               placeholder="Search title or body..."
               value={search}
-              onChange={(e) =>
-                handleSearch(
+              onChange={(e) => {
+                setSearch(
                   e.target.value
-                )
-              }
+                );
+
+                setCurrentPage(
+                  1
+                );
+              }}
             />
 
-            {/* Category */}
+            {/* CATEGORY */}
 
             <select
-              className="rounded-md border border-gray-300 px-3 py-2"
-              value={filterCategory}
-              onChange={(e) =>
-                handleCategoryFilter(
-                  e.target.value
-                )
+              className={`rounded-md border px-3 py-2 ${inputClass}`}
+              value={
+                filterCategory
               }
-            >
+              onChange={(e) => {
+                setFilterCategory(
+                  e.target.value
+                );
 
+                setCurrentPage(
+                  1
+                );
+              }}
+            >
               <option value="">
                 All Categories
               </option>
@@ -918,28 +1518,106 @@ export default function Home() {
               {categories.map(
                 (category) => (
                   <option
-                    key={category.id}
-                    value={category.id}
+                    key={
+                      category.id
+                    }
+                    value={
+                      category.id
+                    }
                   >
-                    {category.name}
+                    {
+                      category.name
+                    }
                   </option>
                 )
               )}
-
             </select>
 
-            {/* Sort */}
+            {/* STATUS FILTER */}
 
             <select
-              className="rounded-md border border-gray-300 px-3 py-2"
-              value={sort}
-              onChange={(e) =>
-                handleSort(
-                  e.target.value
-                )
+              className={`rounded-md border px-3 py-2 ${inputClass}`}
+              value={
+                filterStatus
               }
-            >
+              onChange={(e) => {
+                setFilterStatus(
+                  e.target.value
+                );
 
+                setCurrentPage(
+                  1
+                );
+              }}
+            >
+              <option value="">
+                All Statuses
+              </option>
+
+              <option value="draft">
+                Draft
+              </option>
+
+              <option value="published">
+                Published
+              </option>
+
+              <option value="archived">
+                Archived
+              </option>
+            </select>
+
+            {/* DATE FROM */}
+
+            <input
+              type="date"
+              className={`rounded-md border px-3 py-2 ${inputClass}`}
+              value={
+                dateFrom
+              }
+              onChange={(e) => {
+                setDateFrom(
+                  e.target.value
+                );
+
+                setCurrentPage(
+                  1
+                );
+              }}
+            />
+
+            {/* DATE TO */}
+
+            <input
+              type="date"
+              className={`rounded-md border px-3 py-2 ${inputClass}`}
+              value={dateTo}
+              onChange={(e) => {
+                setDateTo(
+                  e.target.value
+                );
+
+                setCurrentPage(
+                  1
+                );
+              }}
+            />
+
+            {/* SORT */}
+
+            <select
+              className={`rounded-md border px-3 py-2 ${inputClass}`}
+              value={sort}
+              onChange={(e) => {
+                setSort(
+                  e.target.value
+                );
+
+                setCurrentPage(
+                  1
+                );
+              }}
+            >
               <option value="created_at">
                 Created Date
               </option>
@@ -956,22 +1634,28 @@ export default function Home() {
                 ID
               </option>
 
+              <option value="status">
+                Status
+              </option>
             </select>
 
-            {/* Direction */}
+            {/* DIRECTION */}
 
             <select
-              className="rounded-md border border-gray-300 px-3 py-2"
-              value={direction}
+              className={`rounded-md border px-3 py-2 ${inputClass}`}
+              value={
+                direction
+              }
               onChange={(e) => {
                 setDirection(
                   e.target.value
                 );
 
-                setCurrentPage(1);
+                setCurrentPage(
+                  1
+                );
               }}
             >
-
               <option value="desc">
                 Descending
               </option>
@@ -979,21 +1663,12 @@ export default function Home() {
               <option value="asc">
                 Ascending
               </option>
-
             </select>
 
-          </div>
-
-          {/* Per Page */}
-
-          <div className="mt-4 flex items-center gap-3">
-
-            <label className="text-sm text-gray-600">
-              Posts per page:
-            </label>
+            {/* PER PAGE */}
 
             <select
-              className="rounded-md border border-gray-300 px-3 py-2"
+              className={`rounded-md border px-3 py-2 ${inputClass}`}
               value={perPage}
               onChange={(e) => {
                 setPerPage(
@@ -1002,82 +1677,127 @@ export default function Home() {
                   )
                 );
 
-                setCurrentPage(1);
+                setCurrentPage(
+                  1
+                );
               }}
             >
-
-              <option value={3}>
-                3
-              </option>
-
               <option value={5}>
-                5
+                5 per page
               </option>
 
               <option value={10}>
-                10
+                10 per page
               </option>
 
               <option value={20}>
-                20
+                20 per page
               </option>
 
+              <option value={50}>
+                50 per page
+              </option>
             </select>
 
           </div>
-
         </section>
 
-        {/* ========================================================= */}
+        {/* BULK ACTION BAR */}
+
+        {selectedIds.length >
+          0 && (
+          <section className="bg-red-50 border border-red-200 rounded-xl p-4">
+
+            <div className="flex flex-col md:flex-row justify-between items-center gap-3">
+
+              <p className="text-red-700 font-semibold">
+                {selectedIds.length} post(s)
+                selected
+              </p>
+
+              <button
+                onClick={
+                  bulkDelete
+                }
+                className="bg-red-600 text-white px-5 py-2 rounded-md hover:bg-red-700"
+              >
+                🗑️ Delete Selected
+              </button>
+
+            </div>
+
+          </section>
+        )}
+
         {/* POSTS */}
-        {/* ========================================================= */}
 
-        <section className="bg-white rounded-xl shadow-md p-6">
+        <section
+          className={`rounded-xl shadow-md p-6 border ${cardClass}`}
+        >
 
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-3 mb-4">
 
-            <h2 className="text-xl font-bold text-gray-800">
+            <h2 className="text-xl font-bold">
               📝 Posts
             </h2>
 
-            {pagination && (
-              <span className="text-sm text-gray-500">
-                Showing{" "}
-                {pagination.from ?? 0}
-                -
-                {pagination.to ?? 0}
-                of{" "}
-                {pagination.total}
-              </span>
-            )}
+            <div className="flex items-center gap-3">
+
+              {pagination && (
+                <span className="text-sm opacity-70">
+                  Showing{" "}
+                  {pagination.from ??
+                    0}
+                  -
+                  {pagination.to ??
+                    0}
+                  of{" "}
+                  {
+                    pagination.total
+                  }
+                </span>
+              )}
+
+              {posts.length >
+                0 && (
+                <button
+                  onClick={
+                    toggleSelectAll
+                  }
+                  className="border border-indigo-300 text-indigo-500 px-3 py-1 rounded-md text-sm"
+                >
+                  Select All
+                </button>
+              )}
+
+            </div>
 
           </div>
 
           {loading && (
-            <p className="text-center text-indigo-600 py-5">
+            <p className="text-center text-indigo-500 py-5">
               Loading posts...
             </p>
           )}
 
           {error && (
-            <p className="text-center text-red-600 py-5">
+            <p className="text-center text-red-500 py-5">
               {error}
             </p>
           )}
 
           {!loading &&
             !error &&
-            posts.length === 0 && (
+            posts.length ===
+              0 && (
               <div className="text-center py-10">
-
-                <p className="text-gray-500">
+                <p className="opacity-60">
                   No posts found.
                 </p>
 
-                <p className="text-sm text-gray-400 mt-1">
-                  Try changing your search or filters.
+                <p className="text-sm opacity-50 mt-1">
+                  Try changing your filters.
                 </p>
-
               </div>
             )}
 
@@ -1086,36 +1806,85 @@ export default function Home() {
             {posts.map(
               (post) => (
                 <div
-                  key={post.id}
-                  className="border rounded-xl p-5 hover:shadow-sm transition"
+                  key={
+                    post.id
+                  }
+                  className={
+                    darkMode
+                      ? "border border-gray-700 rounded-xl p-5 bg-gray-900"
+                      : "border rounded-xl p-5 bg-white"
+                  }
                 >
 
-                  <div className="flex flex-col md:flex-row justify-between gap-4">
+                  <div className="flex flex-col lg:flex-row gap-4">
 
-                    {/* Content */}
+                    {/* CHECKBOX */}
+
+                    <div className="pt-1">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(
+                          post.id
+                        )}
+                        onChange={() =>
+                          toggleSelection(
+                            post.id
+                          )
+                        }
+                        className="w-5 h-5"
+                      />
+                    </div>
+
+                    {/* CONTENT */}
 
                     <div className="flex-1">
 
                       <div className="flex items-center gap-2 flex-wrap">
 
-                        <h3 className="font-bold text-lg text-indigo-700">
-                          {post.title}
+                        <h3 className="font-bold text-lg text-indigo-500">
+                          {
+                            post.title
+                          }
                         </h3>
 
                         {post.category && (
                           <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full">
-                            {post.category.name}
+                            {
+                              post
+                                .category
+                                .name
+                            }
                           </span>
                         )}
 
+                        {/* STATUS BADGE */}
+
+                        <span
+                          className={
+                            post.status ===
+                            "published"
+                              ? "text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full"
+                              : post.status ===
+                                "archived"
+                              ? "text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full"
+                              : "text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full"
+                          }
+                        >
+                          {
+                            post.status
+                          }
+                        </span>
+
                       </div>
 
-                      <p className="text-gray-600 mt-2">
-                        {post.body}
+                      <p className="opacity-70 mt-2">
+                        {
+                          post.body
+                        }
                       </p>
 
                       {post.created_at && (
-                        <p className="text-xs text-gray-400 mt-3">
+                        <p className="text-xs opacity-50 mt-3">
                           Created:{" "}
                           {new Date(
                             post.created_at
@@ -1123,19 +1892,74 @@ export default function Home() {
                         </p>
                       )}
 
+                      {/* QUICK STATUS */}
+
+                      <div className="flex gap-2 mt-3 flex-wrap">
+
+                        <button
+                          onClick={() =>
+                            changeStatus(
+                              post.id,
+                              "draft"
+                            )
+                          }
+                          className="text-xs border border-yellow-300 text-yellow-600 px-2 py-1 rounded"
+                        >
+                          Draft
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            changeStatus(
+                              post.id,
+                              "published"
+                            )
+                          }
+                          className="text-xs border border-green-300 text-green-600 px-2 py-1 rounded"
+                        >
+                          Publish
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            changeStatus(
+                              post.id,
+                              "archived"
+                            )
+                          }
+                          className="text-xs border border-red-300 text-red-600 px-2 py-1 rounded"
+                        >
+                          Archive
+                        </button>
+
+                      </div>
+
                     </div>
 
-                    {/* Actions */}
+                    {/* ACTIONS */}
 
-                    <div className="flex gap-2 items-start">
+                    <div className="flex lg:flex-col gap-2">
 
                       <button
                         onClick={() =>
-                          editPost(post)
+                          editPost(
+                            post
+                          )
                         }
-                        className="text-sm text-blue-600 border border-blue-200 px-3 py-1 rounded-md hover:bg-blue-50"
+                        className="text-sm text-blue-500 border border-blue-300 px-3 py-1 rounded-md"
                       >
                         Edit
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          duplicatePost(
+                            post.id
+                          )
+                        }
+                        className="text-sm text-purple-500 border border-purple-300 px-3 py-1 rounded-md"
+                      >
+                        Duplicate
                       </button>
 
                       <button
@@ -1144,7 +1968,7 @@ export default function Home() {
                             post.id
                           )
                         }
-                        className="text-sm text-red-600 border border-red-200 px-3 py-1 rounded-md hover:bg-red-50"
+                        className="text-sm text-red-500 border border-red-300 px-3 py-1 rounded-md"
                       >
                         Delete
                       </button>
@@ -1159,42 +1983,28 @@ export default function Home() {
 
           </div>
 
-          {/* ===================================================== */}
           {/* PAGINATION */}
-          {/* ===================================================== */}
 
           {pagination &&
-            pagination.last_page > 1 && (
-              <div className="flex flex-wrap justify-center items-center gap-2 mt-6">
-
-                {/* Previous */}
-
-                <button
-                  disabled={
-                    currentPage === 1
-                  }
-                  onClick={() =>
-                    goToPage(
-                      currentPage - 1
-                    )
-                  }
-                  className="px-3 py-2 border rounded-md disabled:opacity-40 hover:bg-gray-50"
-                >
-                  ← Previous
-                </button>
-
-                {/* Page Numbers */}
+            pagination.last_page >
+              1 && (
+              <div className="flex flex-wrap justify-center gap-2 mt-6">
 
                 {getPageNumbers().map(
                   (page) => (
                     <button
                       key={page}
                       onClick={() =>
-                        goToPage(page)
+                        goToPage(
+                          page
+                        )
                       }
                       className={`px-3 py-2 rounded-md border ${
-                        currentPage === page
+                        currentPage ===
+                        page
                           ? "bg-indigo-600 text-white border-indigo-600"
+                          : darkMode
+                          ? "border-gray-600"
                           : "hover:bg-gray-50"
                       }`}
                     >
@@ -1203,75 +2013,69 @@ export default function Home() {
                   )
                 )}
 
-                {/* Next */}
-
-                <button
-                  disabled={
-                    currentPage ===
-                    pagination.last_page
-                  }
-                  onClick={() =>
-                    goToPage(
-                      currentPage + 1
-                    )
-                  }
-                  className="px-3 py-2 border rounded-md disabled:opacity-40 hover:bg-gray-50"
-                >
-                  Next →
-                </button>
-
               </div>
             )}
 
         </section>
 
-        {/* ========================================================= */}
         {/* LATEST POST */}
-        {/* ========================================================= */}
 
         {statistics?.latest_post && (
-          <section className="bg-white rounded-xl shadow-md p-6">
+          <section
+            className={`rounded-xl shadow-md p-6 border ${cardClass}`}
+          >
 
-            <h2 className="text-xl font-bold text-gray-800 mb-3">
+            <h2 className="text-xl font-bold mb-3">
               ⭐ Latest Post
             </h2>
 
             <div className="border rounded-lg p-4">
 
-              <h3 className="font-bold text-indigo-700">
-                {statistics.latest_post.title}
+              <h3 className="font-bold text-indigo-500">
+                {
+                  statistics
+                    .latest_post
+                    .title
+                }
               </h3>
 
-              <p className="text-gray-600 mt-2">
-                {statistics.latest_post.body}
+              <p className="opacity-70 mt-2">
+                {
+                  statistics
+                    .latest_post
+                    .body
+                }
               </p>
 
-              {statistics.latest_post.category && (
+              {statistics
+                .latest_post
+                .category && (
                 <span className="inline-block mt-3 text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full">
                   {
                     statistics
                       .latest_post
-                      .category.name
+                      .category
+                      .name
                   }
                 </span>
               )}
 
             </div>
-
           </section>
         )}
 
-        {/* ========================================================= */}
         {/* CATEGORY ANALYTICS */}
-        {/* ========================================================= */}
 
         {statistics &&
-          statistics.category_statistics
+          statistics
+            .category_statistics
             .length > 0 && (
-            <section className="bg-white rounded-xl shadow-md p-6">
+            <section
+              className={`rounded-xl shadow-md p-6 border ${cardClass}`}
+            >
 
-              <h2 className="text-xl font-bold text-gray-800 mb-4">
-                📈 Category-wise Post Statistics
+              <h2 className="text-xl font-bold mb-4">
+                📈 Category-wise Statistics
               </h2>
 
               <div className="grid md:grid-cols-3 gap-4">
@@ -1279,19 +2083,25 @@ export default function Home() {
                 {statistics.category_statistics.map(
                   (category) => (
                     <div
-                      key={category.id}
+                      key={
+                        category.id
+                      }
                       className="border rounded-lg p-4"
                     >
 
                       <div className="flex justify-between">
 
-                        <span className="font-semibold text-gray-700">
-                          {category.name}
+                        <span className="font-semibold">
+                          {
+                            category.name
+                          }
                         </span>
 
-                        <span className="font-bold text-indigo-600">
-                          {category.posts_count ??
-                            0}
+                        <span className="font-bold text-indigo-500">
+                          {
+                            category.posts_count ??
+                            0
+                          }
                         </span>
 
                       </div>
@@ -1302,7 +2112,8 @@ export default function Home() {
                           className="h-2 bg-indigo-600 rounded-full"
                           style={{
                             width: `${
-                              statistics.total_posts > 0
+                              statistics.total_posts >
+                              0
                                 ? Math.min(
                                     100,
                                     ((category.posts_count ??
@@ -1327,7 +2138,6 @@ export default function Home() {
           )}
 
       </div>
-
     </main>
   );
 }
