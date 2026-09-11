@@ -16,6 +16,7 @@ class Post extends Model
         'title',
         'body',
         'category_id',
+        'status',
     ];
 
     /**
